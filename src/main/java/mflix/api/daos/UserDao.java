@@ -71,8 +71,12 @@ public class UserDao extends AbstractMFlixDao {
      */
     public boolean addUser(User user) {
         //TODO > Ticket: Durable Writes -  you might want to use a more durable write concern here!
-        InsertOneResult insertOneResult = usersCollection.insertOne(user);
-        return insertOneResult.wasAcknowledged();
+        try {
+            InsertOneResult insertOneResult = usersCollection.insertOne(user);
+            return insertOneResult.wasAcknowledged();
+        } catch (Exception ex) {
+            throw new IncorrectDaoOperation("Error inserting user");
+        }
         //TODO > Ticket: Handling Errors - make sure to only add new users
         // and not users that already exist.
 

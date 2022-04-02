@@ -3,6 +3,8 @@ package mflix.api.daos;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.MongoWriteException;
 import com.mongodb.ReadConcern;
+import com.mongodb.client.AggregateIterable;
+import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Aggregates;
@@ -27,6 +29,7 @@ import org.springframework.stereotype.Component;
 
 import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
@@ -52,7 +55,9 @@ public class CommentDao extends AbstractMFlixDao {
                         MongoClientSettings.getDefaultCodecRegistry(),
                         fromProviders(PojoCodecProvider.builder().automatic(true).build()));
         this.commentCollection =
-                db.getCollection(COMMENT_COLLECTION, Comment.class).withCodecRegistry(pojoCodecRegistry);
+                db.getCollection(COMMENT_COLLECTION, Comment.class)
+                        .withReadConcern(ReadConcern.MAJORITY)
+                        .withCodecRegistry(pojoCodecRegistry);
     }
 
     /**
@@ -165,12 +170,16 @@ public class CommentDao extends AbstractMFlixDao {
      */
     public List<Critic> mostActiveCommenters() {
         List<Critic> mostActive = new ArrayList<>();
-        // // TODO> Ticket: User Report - execute a command that returns the
-        // // list of 20 users, group by number of comments. Don't forget,
-        // // this report is expected to be produced with an high durability
-        // // guarantee for the returned documents. Once a commenter is in the
-        // // top 20 of users, they become a Critic, so mostActive is composed of
-        // // Critic objects.
+
+        commentCollection.aggregate(Arrays.asList(new Document("$group",
+                        new Document("_id", "$email")
+                                .append("count",
+                                        new Document("$sum", 1L))),
+                new Document("$sort",
+                        new Document("count", -1L)),
+                new Document("$limit", 20L)), Critic.class)
+                .into(mostActive);
+
         return mostActive;
     }
 }
